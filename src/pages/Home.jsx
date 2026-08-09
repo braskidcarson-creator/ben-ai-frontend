@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import ChatWindow from "../components/ChatWindow";
 import ChatInput from "../components/ChatInput";
-import { askBENAI } from "../services/api";
+import { askBENAI, uploadPDF } from "../services/api";
 
 const DEFAULT_CHAT = {
     id: Date.now(),
@@ -12,31 +12,28 @@ const DEFAULT_CHAT = {
 
 function Home() {
 
-    const [chats, setChats] = useState(() => {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    const [chats, setChats] = useState(() => {
         const saved = localStorage.getItem("benai_chats");
 
         return saved
             ? JSON.parse(saved)
             : [DEFAULT_CHAT];
-
     });
 
     const [activeChat, setActiveChat] = useState(() => {
+        const saved =
+            localStorage.getItem("benai_active_chat");
 
-        const saved = localStorage.getItem("benai_active_chat");
-
-        return saved
-            ? Number(saved)
-            : 0;
-
+        return saved ? Number(saved) : 0;
     });
 
     const [loading, setLoading] = useState(false);
 
-    // ----------------------------
-    // Save chats automatically
-    // ----------------------------
+    const [pdfAttachment, setPdfAttachment] =
+        useState(null);
+
 
     useEffect(() => {
 
@@ -47,9 +44,6 @@ function Home() {
 
     }, [chats]);
 
-    // ----------------------------
-    // Save active chat
-    // ----------------------------
 
     useEffect(() => {
 
@@ -60,13 +54,13 @@ function Home() {
 
     }, [activeChat]);
 
-    // ----------------------------
-    // Safety
-    // ----------------------------
 
     useEffect(() => {
 
-        if (activeChat >= chats.length) {
+        if (
+            activeChat >= chats.length &&
+            chats.length > 0
+        ) {
 
             setActiveChat(0);
 
@@ -74,9 +68,6 @@ function Home() {
 
     }, [chats, activeChat]);
 
-    // ----------------------------
-    // Send Message
-    // ----------------------------
 
     const sendMessage = async (text) => {
 
@@ -86,29 +77,31 @@ function Home() {
 
         const currentChat = chats[chatIndex];
 
+        if (!currentChat) return;
+
+
         const userMessage = {
-
             role: "user",
-
             content: text
-
         };
 
+
         const title =
-
             currentChat.messages.length === 0
-
-                ? text.split(" ").slice(0, 4).join(" ")
-
+                ? text
+                    .split(" ")
+                    .slice(0, 5)
+                    .join(" ")
                 : currentChat.title;
 
-        const updatedChats = chats.map(chat => ({
 
-            ...chat,
+        const updatedChats = chats.map(
+            (chat) => ({
+                ...chat,
+                messages: [...chat.messages]
+            })
+        );
 
-            messages: [...chat.messages]
-
-        }));
 
         updatedChats[chatIndex] = {
 
@@ -117,77 +110,73 @@ function Home() {
             title,
 
             messages: [
-
                 ...updatedChats[chatIndex].messages,
-
                 userMessage
-
             ]
 
         };
 
+
         setChats(updatedChats);
 
         setLoading(true);
+
 
         try {
 
             const answer = await askBENAI(
                 text,
                 updatedChats[chatIndex].messages
-        );
+            );
+
 
             updatedChats[chatIndex] = {
 
                 ...updatedChats[chatIndex],
 
                 messages: [
-
                     ...updatedChats[chatIndex].messages,
 
                     {
-
                         role: "assistant",
-
                         content: answer
-
                     }
 
                 ]
 
             };
 
+
             setChats([...updatedChats]);
 
-        }
 
-        catch {
+        } catch (error) {
+
+            console.error(error);
+
 
             updatedChats[chatIndex] = {
 
                 ...updatedChats[chatIndex],
 
                 messages: [
-
                     ...updatedChats[chatIndex].messages,
 
                     {
-
                         role: "assistant",
-
-                        content: "⚠️ BEN AI couldn't respond."
-
+                        content:
+                            "BEN AI couldn't respond. Please try again."
                     }
 
                 ]
 
             };
 
+
             setChats([...updatedChats]);
 
-        }
 
-        finally {
+        } finally {
 
             setLoading(false);
 
@@ -195,9 +184,59 @@ function Home() {
 
     };
 
-    // ----------------------------
-    // New Chat
-    // ----------------------------
+
+    const handleUploadPDF = async (file) => {
+
+        if (!file) return;
+
+
+        setPdfAttachment({
+
+            name: file.name,
+
+            status: "uploading"
+
+        });
+
+
+        try {
+
+            await uploadPDF(file);
+
+
+            setPdfAttachment({
+
+                name: file.name,
+
+                status: "success"
+
+            });
+
+
+        } catch (error) {
+
+            console.error(error);
+
+
+            setPdfAttachment({
+
+                name: file.name,
+
+                status: "error"
+
+            });
+
+        }
+
+    };
+
+
+    const removePDF = () => {
+
+        setPdfAttachment(null);
+
+    };
+
 
     const newChat = () => {
 
@@ -211,54 +250,124 @@ function Home() {
 
         };
 
-        setChats(prev => {
 
-            const updated = [...prev, chat];
+        setChats((previousChats) => {
 
-            setActiveChat(updated.length - 1);
+            const updated = [
+                ...previousChats,
+                chat
+            ];
+
+
+            setActiveChat(
+                updated.length - 1
+            );
+
 
             return updated;
 
         });
 
+
+        setPdfAttachment(null);
+
+        setSidebarOpen(false);
+
     };
+
+
+    const openChat = (index) => {
+
+        setActiveChat(index);
+
+        setPdfAttachment(null);
+
+        setSidebarOpen(false);
+
+    };
+
+
+    const currentChat = chats[activeChat];
+
 
     return (
 
         <div className="app">
 
+            {sidebarOpen && (
+
+                <div
+                    className="sidebar-overlay"
+                    onClick={() =>
+                        setSidebarOpen(false)
+                    }
+                />
+
+            )}
+
+
             <Sidebar
                 chats={chats}
                 activeChat={activeChat}
-                openChat={setActiveChat}
+                openChat={openChat}
                 newChat={newChat}
                 setChats={setChats}
-            
+                isOpen={sidebarOpen}
             />
+
 
             <main className="chat-area">
 
+
+                <header className="chat-header">
+
+                    <button
+                        className="menu-button"
+                        onClick={() =>
+                            setSidebarOpen(
+                                (previous) =>
+                                    !previous
+                            )
+                        }
+                        aria-label="Open dashboard"
+                        title="Dashboard"
+                    >
+                        ☰
+                    </button>
+
+
+                    <div className="chat-header-title">
+
+                        <span className="header-logo">
+                            🤖
+                        </span>
+
+                        <span>
+                            BEN AI
+                        </span>
+
+                    </div>
+
+                </header>
+
+
                 <ChatWindow
-
                     messages={
-
-                        chats[activeChat]
-
-                            ? chats[activeChat].messages
-
+                        currentChat
+                            ? currentChat.messages
                             : []
-
                     }
-
                     loading={loading}
-
                 />
+
 
                 <ChatInput
-
                     onSend={sendMessage}
-
+                    onUpload={handleUploadPDF}
+                    pdfAttachment={pdfAttachment}
+                    onRemovePDF={removePDF}
                 />
+
 
             </main>
 

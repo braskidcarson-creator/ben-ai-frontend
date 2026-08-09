@@ -1,4 +1,4 @@
-const API_URL = "https://ben-ai-qsq6.onrender.com";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export async function askBENAI(message, history = []) {
     console.log("API RECEIVED:", message);
@@ -33,6 +33,55 @@ export async function askBENAI(message, history = []) {
 
     } catch (error) {
         console.error("BEN AI API ERROR:", error);
+        throw error;
+    }
+}
+
+
+export async function uploadPDF(file) {
+    console.log("PDF UPLOAD:", file.name);
+
+    const formData = new FormData();
+
+    formData.append("file", file);
+
+    try {
+        const response = await fetch(
+            `${API_URL}/upload-pdf`,
+            {
+                method: "POST",
+                body: formData
+            }
+        );
+
+        console.log(
+            "PDF UPLOAD STATUS:",
+            response.status
+        );
+
+        const data = await response.json();
+
+        console.log(
+            "PDF UPLOAD RESPONSE:",
+            data
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                typeof data.detail === "string"
+                    ? data.detail
+                    : "PDF upload failed"
+            );
+        }
+
+        return data;
+
+    } catch (error) {
+        console.error(
+            "PDF UPLOAD ERROR:",
+            error
+        );
+
         throw error;
     }
 }

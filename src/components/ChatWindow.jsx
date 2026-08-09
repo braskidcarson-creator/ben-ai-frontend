@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 
 function ChatWindow({ messages, loading }) {
 
@@ -12,6 +13,7 @@ function ChatWindow({ messages, loading }) {
 
     }, [messages, loading]);
 
+
     if (messages.length === 0 && !loading) {
 
         return (
@@ -20,7 +22,9 @@ function ChatWindow({ messages, loading }) {
 
                 <div className="welcome">
 
-                    <div style={{ fontSize: "70px" }}>🤖</div>
+                    <div style={{ fontSize: "70px" }}>
+                        🤖
+                    </div>
 
                     <h1>Welcome to BEN AI</h1>
 
@@ -31,13 +35,9 @@ function ChatWindow({ messages, loading }) {
                     <br />
 
                     <p>📘 Ask academic questions</p>
-
                     <p>📄 Upload PDF notes</p>
-
                     <p>📝 Summarize documents</p>
-
                     <p>💡 Generate ideas</p>
-
                     <p>🧠 Learn anything faster</p>
 
                     <br />
@@ -51,6 +51,7 @@ function ChatWindow({ messages, loading }) {
         );
 
     }
+
 
     return (
 
@@ -75,7 +76,8 @@ function ChatWindow({ messages, loading }) {
 
                     </div>
 
-                    <div>
+
+                    <div className="message-content">
 
                         <div className="message-name">
 
@@ -85,20 +87,21 @@ function ChatWindow({ messages, loading }) {
 
                         </div>
 
-                        <div
-                            className="bubble"
-                            dangerouslySetInnerHTML={{
-                                __html: msg.content
-                                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                                    .replace(/\n/g, "<br>")
-                            }}
-                        />
+
+                        <div className="bubble">
+
+                            <ReactMarkdown>
+                                {msg.content}
+                            </ReactMarkdown>
+
+                        </div>
 
                     </div>
 
                 </div>
 
             ))}
+
 
             {loading && (
 
@@ -108,7 +111,7 @@ function ChatWindow({ messages, loading }) {
                         🤖
                     </div>
 
-                    <div>
+                    <div className="message-content">
 
                         <div className="message-name">
                             BEN AI
@@ -130,6 +133,7 @@ function ChatWindow({ messages, loading }) {
 
             )}
 
+
             <div ref={bottomRef}></div>
 
         </div>
@@ -139,3 +143,4 @@ function ChatWindow({ messages, loading }) {
 }
 
 export default ChatWindow;
+
