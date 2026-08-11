@@ -69,7 +69,54 @@ function Home() {
     }, [chats, activeChat]);
 
 
-    const sendMessage = async (text) => {
+    const handleTranscription = (result) => {
+
+    console.log(
+        "TRANSCRIPTION RESULT RECEIVED:",
+        result
+    );
+
+    const transcriptText =
+        result.transcript ||
+        result.text ||
+        "";
+
+    if (transcriptText.trim() === "") return;
+
+    const chatIndex = activeChat;
+
+    const currentChat = chats[chatIndex];
+
+    if (currentChat === undefined) return;
+
+    const transcriptionMessage = {
+        role: "assistant",
+        content: transcriptText,
+        type: "transcription",
+        language: result.language,
+        segments: result.segments || []
+    };
+
+    const updatedChats = chats.map(
+        (chat) => ({
+            ...chat,
+            messages: [...chat.messages]
+        })
+    );
+
+    updatedChats[chatIndex] = {
+        ...updatedChats[chatIndex],
+        messages: [
+            ...updatedChats[chatIndex].messages,
+            transcriptionMessage
+        ]
+    };
+
+    setChats(updatedChats);
+
+};
+
+const sendMessage = async (text) => {
 
         if (!text.trim()) return;
 
@@ -364,6 +411,7 @@ function Home() {
                 <ChatInput
                     onSend={sendMessage}
                     onUpload={handleUploadPDF}
+                    onTranscription={handleTranscription}
                     pdfAttachment={pdfAttachment}
                     onRemovePDF={removePDF}
                 />

@@ -37,12 +37,10 @@ export async function askBENAI(message, history = []) {
     }
 }
 
-
 export async function uploadPDF(file) {
     console.log("PDF UPLOAD:", file.name);
 
     const formData = new FormData();
-
     formData.append("file", file);
 
     try {
@@ -54,17 +52,11 @@ export async function uploadPDF(file) {
             }
         );
 
-        console.log(
-            "PDF UPLOAD STATUS:",
-            response.status
-        );
+        console.log("PDF UPLOAD STATUS:", response.status);
 
         const data = await response.json();
 
-        console.log(
-            "PDF UPLOAD RESPONSE:",
-            data
-        );
+        console.log("PDF UPLOAD RESPONSE:", data);
 
         if (!response.ok) {
             throw new Error(
@@ -77,8 +69,100 @@ export async function uploadPDF(file) {
         return data;
 
     } catch (error) {
+        console.error("PDF UPLOAD ERROR:", error);
+        throw error;
+    }
+}
+
+export async function transcribeUrl(url) {
+
+    console.log("URL TRANSCRIPTION:", url);
+
+    try {
+
+        const response = await fetch(
+            API_URL + "/transcribe-url",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    url: url
+                })
+            }
+        );
+
+        console.log(
+            "URL TRANSCRIPTION STATUS:",
+            response.status
+        );
+
+        const data = await response.json();
+
+        console.log(
+            "URL TRANSCRIPTION RESPONSE:",
+            data
+        );
+
+        if (response.ok === false || data.success !== true) {
+            throw new Error(
+                data.error ||
+                "URL transcription failed"
+            );
+        }
+
+        return data;
+
+    } catch (error) {
+
         console.error(
-            "PDF UPLOAD ERROR:",
+            "URL TRANSCRIPTION ERROR:",
+            error
+        );
+
+        throw error;
+    }
+}
+
+export async function transcribeAudio(file) {
+    console.log("AUDIO TRANSCRIPTION:", file.name);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+        const response = await fetch(
+            `${API_URL}/transcribe`,
+            {
+                method: "POST",
+                body: formData
+            }
+        );
+
+        console.log(
+            "TRANSCRIPTION STATUS:",
+            response.status
+        );
+
+        const data = await response.json();
+
+        console.log(
+            "TRANSCRIPTION RESPONSE:",
+            data
+        );
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.error || "Audio transcription failed"
+            );
+        }
+
+        return data;
+
+    } catch (error) {
+        console.error(
+            "TRANSCRIPTION ERROR:",
             error
         );
 
