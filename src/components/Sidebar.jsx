@@ -5,7 +5,8 @@ function Sidebar({
     activeChat,
     openChat,
     newChat,
-    setChats
+    setChats,
+    isOpen
 }) {
 
     const historyRef = useRef(null);
@@ -50,7 +51,9 @@ function Sidebar({
 
         setChats(prev => {
 
-            const updated = prev.filter(chat => chat.id !== id);
+            const updated = prev.filter(
+                chat => chat.id !== id
+            );
 
             // Never leave BEN AI without a chat
             if (updated.length === 0) {
@@ -111,9 +114,15 @@ function Sidebar({
 
     return (
 
-        <aside className="sidebar">
+        <aside
+            className={`sidebar ${
+                isOpen ? "open" : ""
+            }`}
+        >
 
-            <h2>🤖 BEN AI</h2>
+            <h2>
+                🤖 BEN AI
+            </h2>
 
             <button
                 className="new-chat"
@@ -181,13 +190,17 @@ function Sidebar({
 
                                         e.stopPropagation();
 
-                                        if (menuChat === chat.id) {
+                                        if (
+                                            menuChat === chat.id
+                                        ) {
 
                                             setMenuChat(null);
 
                                         } else {
 
-                                            setMenuChat(chat.id);
+                                            setMenuChat(
+                                                chat.id
+                                            );
 
                                         }
 
@@ -206,7 +219,9 @@ function Sidebar({
 
                                                 e.stopPropagation();
 
-                                                renameChat(chat.id);
+                                                renameChat(
+                                                    chat.id
+                                                );
 
                                             }}
                                         >
@@ -215,6 +230,13 @@ function Sidebar({
 
                                         <div
                                             className="popup-item"
+                                            onClick={(e) => {
+
+                                                e.stopPropagation();
+
+                                                setMenuChat(null);
+
+                                            }}
                                         >
                                             📌 Pin
                                         </div>
@@ -225,7 +247,9 @@ function Sidebar({
 
                                                 e.stopPropagation();
 
-                                                deleteChat(chat.id);
+                                                deleteChat(
+                                                    chat.id
+                                                );
 
                                             }}
                                         >
