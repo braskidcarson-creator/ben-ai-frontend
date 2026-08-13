@@ -6,10 +6,14 @@ import {
     FiSend,
     FiSquare,
     FiCheck,
-    FiX
+    FiX,
+    FiUpload
 } from "react-icons/fi";
 
-import { transcribeAudio, transcribeUrl } from "../services/api";
+import {
+    transcribeAudio,
+    transcribeUrl
+} from "../services/api";
 
 function ChatInput({
     onSend,
@@ -22,19 +26,31 @@ function ChatInput({
     const [text, setText] = useState("");
     const [listening, setListening] = useState(false);
     const [transcribing, setTranscribing] = useState(false);
+
     const [mediaUrl, setMediaUrl] = useState("");
     const [urlTranscribing, setUrlTranscribing] = useState(false);
-    const [recordingSeconds, setRecordingSeconds] = useState(0);
+
+    const [fileTranscribing, setFileTranscribing] =
+        useState(false);
+
+    const [recordingSeconds, setRecordingSeconds] =
+        useState(0);
+
     const recordingTimerRef = useRef(null);
 
     const fileInputRef = useRef(null);
     const recognitionRef = useRef(null);
 
+
+    /* =========================
+       URL TRANSCRIPTION
+    ========================= */
+
     const handleUrlTranscription = async () => {
 
         const url = mediaUrl.trim();
 
-        if (url === "") return;
+        if (!url) return;
 
         setUrlTranscribing(true);
 
@@ -79,6 +95,11 @@ function ChatInput({
 
     };
 
+
+    /* =========================
+       NORMAL CHAT MESSAGE
+    ========================= */
+
     const send = () => {
 
         if (!text.trim()) return;
@@ -88,6 +109,7 @@ function ChatInput({
         setText("");
 
     };
+
 
     const handleKeyDown = (e) => {
 
@@ -104,19 +126,57 @@ function ChatInput({
 
     };
 
-    const handleFileChange = (e) => {
+
+    /* =========================
+       FILE UPLOAD
+       PDF + AUDIO + VIDEO
+    ========================= */
+
+    const handleFileChange = async (e) => {
 
         const file =
             e.target.files?.[0];
 
         if (!file) return;
 
-        if (
-            file.type !== "application/pdf" &&
-            !file.name.toLowerCase().endsWith(".pdf")
-        ) {
+        const name =
+            file.name.toLowerCase();
 
-            alert("Please select a PDF file.");
+        const isPDF =
+            file.type === "application/pdf" ||
+            name.endsWith(".pdf");
+
+        const mediaExtensions = [
+            ".mp3",
+            ".wav",
+            ".m4a",
+            ".webm",
+            ".ogg",
+            ".flac",
+            ".mp4",
+            ".mov",
+            ".avi",
+            ".mkv"
+        ];
+
+        const isMedia =
+            file.type.startsWith("audio/") ||
+            file.type.startsWith("video/") ||
+            mediaExtensions.some(
+                (extension) =>
+                    name.endsWith(extension)
+            );
+
+
+        /* =========================
+           PDF
+        ========================= */
+
+        if (isPDF) {
+
+            if (onUpload) {
+                onUpload(file);
+            }
 
             e.target.value = "";
 
@@ -124,20 +184,87 @@ function ChatInput({
 
         }
 
-        if (onUpload) {
 
-            onUpload(file);
+        /* =========================
+           AUDIO / VIDEO
+        ========================= */
+
+        if (isMedia) {
+
+            setFileTranscribing(true);
+
+            try {
+
+                console.log(
+                    "MEDIA FILE SELECTED:",
+                    file.name
+                );
+
+                console.log(
+                    "MEDIA TYPE:",
+                    file.type
+                );
+
+                console.log(
+                    "MEDIA SIZE:",
+                    file.size
+                );
+
+                const result =
+                    await transcribeAudio(file);
+
+                console.log(
+                    "MEDIA TRANSCRIPTION RESULT:",
+                    result
+                );
+
+                if (onTranscription) {
+                    onTranscription(result);
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "FILE TRANSCRIPTION ERROR:",
+                    error
+                );
+
+                alert(
+                    error.message ||
+                    "Audio/video transcription failed."
+                );
+
+            } finally {
+
+                setFileTranscribing(false);
+
+            }
+
+            e.target.value = "";
+
+            return;
 
         }
+
+
+        alert(
+            "Please select a PDF, audio, or video file."
+        );
 
         e.target.value = "";
 
     };
 
+
+    /* =========================
+       MICROPHONE
+    ========================= */
+
     const toggleVoice = async () => {
 
         const current =
             recognitionRef.current;
+
 
         if (
             current?.recorder?.state ===
@@ -154,6 +281,7 @@ function ChatInput({
 
         }
 
+
         if (
             !navigator.mediaDevices ||
             !navigator.mediaDevices.getUserMedia
@@ -166,6 +294,7 @@ function ChatInput({
             return;
 
         }
+
 
         try {
 
@@ -184,6 +313,7 @@ function ChatInput({
                 stream
             };
 
+
             recorder.ondataavailable = (
                 event
             ) => {
@@ -198,35 +328,43 @@ function ChatInput({
 
             };
 
+
             recorder.onstart = () => {
 
                 setListening(true);
                 setTranscribing(false);
                 setRecordingSeconds(0);
 
-                recordingTimerRef.current = setInterval(() => {
-                    setRecordingSeconds((seconds) => seconds + 1);
-                }, 1000);
+                recordingTimerRef.current =
+                    setInterval(() => {
 
-                console.log(
-                    "RECORDING STARTED"
-                );
+                        setRecordingSeconds(
+                            (seconds) =>
+                                seconds + 1
+                        );
+
+                    }, 1000);
 
             };
+
 
             recorder.onstop = async () => {
 
                 setListening(false);
                 setTranscribing(true);
 
-                if (recordingTimerRef.current) {
-                    clearInterval(recordingTimerRef.current);
-                    recordingTimerRef.current = null;
-                }
+                if (
+                    recordingTimerRef.current
+                ) {
 
-                console.log(
-                    "RECORDING STOPPED"
-                );
+                    clearInterval(
+                        recordingTimerRef.current
+                    );
+
+                    recordingTimerRef.current =
+                        null;
+
+                }
 
                 stream
                     .getTracks()
@@ -235,7 +373,9 @@ function ChatInput({
                             track.stop()
                     );
 
-                recognitionRef.current = null;
+                recognitionRef.current =
+                    null;
+
 
                 const audioBlob =
                     new Blob(
@@ -246,19 +386,12 @@ function ChatInput({
                         }
                     );
 
-                console.log(
-                    "AUDIO SIZE:",
-                    audioBlob.size
-                );
-
-                console.log(
-                    "AUDIO TYPE:",
-                    recorder.mimeType
-                );
 
                 if (
                     audioBlob.size === 0
                 ) {
+
+                    setTranscribing(false);
 
                     alert(
                         "No audio was recorded. Please try again."
@@ -268,12 +401,14 @@ function ChatInput({
 
                 }
 
+
                 const extension =
                     recorder.mimeType.includes(
                         "webm"
                     )
                         ? "webm"
                         : "wav";
+
 
                 const audioFile =
                     new File(
@@ -288,14 +423,8 @@ function ChatInput({
                         }
                     );
 
-                try {
 
-                    console.log(
-                        "SENDING AUDIO:",
-                        audioFile.name,
-                        audioFile.size,
-                        audioFile.type
-                    );
+                try {
 
                     const result =
                         await transcribeAudio(
@@ -306,8 +435,6 @@ function ChatInput({
                         onTranscription(result);
                     }
 
-                    setTranscribing(false);
-
                 } catch (error) {
 
                     console.error(
@@ -315,16 +442,19 @@ function ChatInput({
                         error
                     );
 
-                    setTranscribing(false);
-
                     alert(
                         error.message ||
                         "Voice transcription failed."
                     );
 
+                } finally {
+
+                    setTranscribing(false);
+
                 }
 
             };
+
 
             recorder.onerror = (
                 event
@@ -336,6 +466,7 @@ function ChatInput({
                 );
 
                 setListening(false);
+                setTranscribing(false);
 
                 stream
                     .getTracks()
@@ -344,9 +475,11 @@ function ChatInput({
                             track.stop()
                     );
 
-                recognitionRef.current = null;
+                recognitionRef.current =
+                    null;
 
             };
+
 
             recorder.start();
 
@@ -380,9 +513,38 @@ function ChatInput({
 
     };
 
+
+    /* =========================
+       TIME FORMAT
+    ========================= */
+
+    const formatTime = (seconds) => {
+
+        const minutes =
+            Math.floor(seconds / 60);
+
+        const remaining =
+            seconds % 60;
+
+        return (
+            String(minutes).padStart(2, "0") +
+            ":" +
+            String(remaining).padStart(2, "0")
+        );
+
+    };
+
+
+    /* =========================
+       UI
+    ========================= */
+
     return (
 
         <div className="chat-input-wrapper">
+
+
+            {/* PDF ATTACHMENT */}
 
             {pdfAttachment && (
 
@@ -447,7 +609,6 @@ function ChatInput({
                                 className="pdf-upload-error"
                                 onClick={onRemovePDF}
                                 title="Remove failed PDF"
-                                aria-label="Remove failed PDF"
                             >
                                 <FiX />
                             </button>
@@ -462,7 +623,6 @@ function ChatInput({
                                 className="pdf-remove-button"
                                 onClick={onRemovePDF}
                                 title="Remove PDF"
-                                aria-label="Remove PDF"
                             >
                                 <FiX />
                             </button>
@@ -475,99 +635,163 @@ function ChatInput({
 
             )}
 
+
+            {/* MAIN INPUT */}
+
             <div className="chat-input">
+
+
+                {/* FILE PICKER */}
 
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,application/pdf"
+                    accept=".pdf,.mp3,.wav,.m4a,.webm,.ogg,.flac,.mp4,.mov,.avi,.mkv,audio/*,video/*"
                     hidden
                     onChange={handleFileChange}
                 />
 
+
+                {/* MEDIA UPLOAD */}
+
                 <button
                     type="button"
-                    className="input-icon-button"
+                    className="input-icon-button media-upload-button"
                     onClick={() =>
                         fileInputRef.current?.click()
                     }
-                    title="Upload PDF"
-                    aria-label="Upload PDF"
+                    title="Upload PDF, audio or video"
+                    aria-label="Upload PDF, audio or video"
                 >
-                    <FiPaperclip />
+                    <FiUpload />
                 </button>
+
+
+                {/* URL TRANSCRIPTION */}
 
                 <div className="media-url-box">
-                <input
-                    type="url"
-                    value={mediaUrl}
-                    onChange={(e) => setMediaUrl(e.target.value)}
-                    placeholder="Paste video or audio link..."
-                    className="media-url-input"
-                />
 
-                <button
-                    type="button"
-                    className="media-url-button"
-                    onClick={handleUrlTranscription}
-                    disabled={mediaUrl.trim() === "" || urlTranscribing}
-                >
-                    {urlTranscribing ? "Transcribing..." : "Transcribe Link"}
-                </button>
-            </div>
+                    <input
+                        type="text"
+                        value={mediaUrl}
+                        onChange={(e) =>
+                            setMediaUrl(e.target.value)
+                        }
+                        onKeyDown={(e) => {
 
-            <textarea
+                            if (
+                                e.key === "Enter" &&
+                                mediaUrl.trim()
+                            ) {
+
+                                e.preventDefault();
+
+                                handleUrlTranscription();
+
+                            }
+
+                        }}
+                        placeholder="Paste audio/video link..."
+                        disabled={
+                            urlTranscribing ||
+                            fileTranscribing
+                        }
+                    />
+
+                    <button
+                        type="button"
+                        className="url-transcribe-button"
+                        onClick={handleUrlTranscription}
+                        disabled={
+                            urlTranscribing ||
+                            !mediaUrl.trim()
+                        }
+                        title="Transcribe media link"
+                    >
+
+                        {urlTranscribing
+                            ? "..."
+                            : "Transcribe"}
+
+                    </button>
+
+                </div>
+
+
+                {/* TEXT INPUT */}
+
+                <textarea
                     value={text}
                     onChange={(e) =>
                         setText(e.target.value)
                     }
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask BEN AI anything..."
+                    placeholder="Ask BEN AI..."
                     rows={1}
                 />
 
-                {(listening || transcribing) && (
-                <div className="voice-status">
-                    {listening ? (
-                        <>
-                            <span className="voice-dot"></span>
-                            Recording {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}
-                        </>
-                    ) : (
-                        <>
-                            <span className="voice-spinner"></span>
-                            Transcribing...
-                        </>
-                    )}
-                </div>
-            )}
 
-            <button
+                {/* MICROPHONE */}
+
+                <button
                     type="button"
                     className={
-                        listening
-                            ? "input-icon-button listening"
-                            : "input-icon-button"
+                        "input-icon-button " +
+                        (listening
+                            ? "recording-button"
+                            : "")
                     }
                     onClick={toggleVoice}
+                    disabled={
+                        transcribing ||
+                        fileTranscribing ||
+                        urlTranscribing
+                    }
                     title={
                         listening
                             ? "Stop recording"
-                            : "Voice input"
+                            : "Record voice"
                     }
                     aria-label={
                         listening
                             ? "Stop recording"
-                            : "Voice input"
+                            : "Record voice"
                     }
                 >
 
                     {listening
                         ? <FiSquare />
-                        : <FiMic />
-                    }
+                        : <FiMic />}
 
                 </button>
+
+
+                {/* RECORDING STATUS */}
+
+                {listening && (
+
+                    <span className="recording-time">
+                        {formatTime(recordingSeconds)}
+                    </span>
+
+                )}
+
+
+                {/* TRANSCRIPTION STATUS */}
+
+                {(
+                    fileTranscribing ||
+                    transcribing
+                ) && (
+
+                    <span className="transcribing-status">
+                        Transcribing...
+                    </span>
+
+                )}
+
+
+                {/* SEND */}
 
                 <button
                     type="button"
